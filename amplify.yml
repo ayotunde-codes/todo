@@ -20,8 +20,3 @@ frontend:
     paths:
       - node_modules/**/*
       - .next/cache/**/*
-  environment:
-    variables:
-      - DATABASE_URL
-      - AUTH_SECRET
-      - NEXTAUTH_URL
