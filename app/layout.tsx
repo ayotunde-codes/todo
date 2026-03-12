@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { SessionProvider } from "next-auth/react";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -12,9 +11,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className="dark">
-      <body className="antialiased">
-        <SessionProvider>{children}</SessionProvider>
-      </body>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }

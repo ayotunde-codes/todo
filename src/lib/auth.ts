@@ -1,69 +1,57 @@
-import NextAuth from "next-auth";
-import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/prisma";
+import { SignJWT, jwtVerify } from "jose";
+import { cookies } from "next/headers";
 
-const secret =
-  process.env.AUTH_SECRET ??
-  process.env.NEXTAUTH_SECRET ??
-  process.env.SECRET;
+const COOKIE_NAME = "auth-token";
+const secret = new TextEncoder().encode(
+  process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? "fallback-dev-secret-change-in-prod"
+);
 
-if (!secret && process.env.NODE_ENV === "production") {
-  throw new Error(
-    "AUTH_SECRET environment variable is not set. Add it in the Amplify Console under Environment Variables."
-  );
+export interface SessionUser {
+  id: string;
+  email: string;
+  name: string | null;
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret,
-  trustHost: true,
-  session: { strategy: "jwt" },
-  pages: {
-    signIn: "/login",
-  },
-  providers: [
-    Credentials({
-      name: "credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+export async function createToken(user: SessionUser): Promise<string> {
+  return new SignJWT({ id: user.id, email: user.email, name: user.name })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("7d")
+    .sign(secret);
+}
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-        });
+export async function verifyToken(token: string): Promise<SessionUser | null> {
+  try {
+    const { payload } = await jwtVerify(token, secret);
+    return {
+      id: payload.id as string,
+      email: payload.email as string,
+      name: (payload.name as string) ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
 
-        if (!user) return null;
+export async function getSession(): Promise<SessionUser | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(COOKIE_NAME)?.value;
+  if (!token) return null;
+  return verifyToken(token);
+}
 
-        const passwordMatch = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        );
-
-        if (!passwordMatch) return null;
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-        };
-      },
-    }),
-  ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-      }
-      return token;
+export function setSessionCookie(token: string): { name: string; value: string; options: object } {
+  return {
+    name: COOKIE_NAME,
+    value: token,
+    options: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax" as const,
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/",
     },
-    async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id as string;
-      }
-      return session;
-    },
-  },
-});
+  };
+}
+
+export const COOKIE_NAME_EXPORT = COOKIE_NAME;

@@ -1,26 +1,31 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { jwtVerify } from "jose";
+
+const secret = new TextEncoder().encode(
+  process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? "fallback-dev-secret-change-in-prod"
+);
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
-    pathname.startsWith("/favicon")
-  ) {
+  if (pathname.startsWith("/_next") || pathname.startsWith("/api") || pathname.startsWith("/favicon")) {
     return NextResponse.next();
   }
 
-  const token = await getToken({
-    req,
-    secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
-  });
+  const token = req.cookies.get("auth-token")?.value;
+  let isLoggedIn = false;
 
-  const isLoggedIn = !!token;
-  const isAuthPage =
-    pathname.startsWith("/login") || pathname.startsWith("/register");
+  if (token) {
+    try {
+      await jwtVerify(token, secret);
+      isLoggedIn = true;
+    } catch {
+      isLoggedIn = false;
+    }
+  }
+
+  const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/register");
   const isTodosPage = pathname.startsWith("/todos");
 
   if (isTodosPage && !isLoggedIn) {

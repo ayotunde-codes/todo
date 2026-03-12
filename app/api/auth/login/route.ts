@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { createUser, getUserByEmail } from "@/services/todo.service";
+import { getUserByEmail } from "@/services/todo.service";
 import { createToken, setSessionCookie } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, name } = await req.json();
+    const { email, password } = await req.json();
 
     if (!email || !password) {
       return NextResponse.json(
@@ -14,35 +14,35 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (password.length < 8) {
+    const user = await getUserByEmail(email);
+    if (!user) {
       return NextResponse.json(
-        { error: "Password must be at least 8 characters" },
-        { status: 400 }
+        { error: "Invalid email or password" },
+        { status: 401 }
       );
     }
 
-    const existing = await getUserByEmail(email);
-    if (existing) {
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
       return NextResponse.json(
-        { error: "An account with this email already exists" },
-        { status: 409 }
+        { error: "Invalid email or password" },
+        { status: 401 }
       );
     }
-
-    const hashed = await bcrypt.hash(password, 12);
-    const user = await createUser(email, hashed, name);
 
     const token = await createToken({
       id: user.id,
       email: user.email,
-      name: user.name ?? null,
+      name: user.name,
     });
 
     const cookie = setSessionCookie(token);
-    const response = NextResponse.json({ data: user }, { status: 201 });
+    const response = NextResponse.json({
+      data: { id: user.id, email: user.email, name: user.name },
+    });
     response.cookies.set(cookie.name, cookie.value, cookie.options as Parameters<typeof response.cookies.set>[2]);
     return response;
   } catch {
-    return NextResponse.json({ error: "Registration failed" }, { status: 500 });
+    return NextResponse.json({ error: "Login failed" }, { status: 500 });
   }
 }
