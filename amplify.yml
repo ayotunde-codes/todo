@@ -5,9 +5,8 @@ frontend:
       commands:
         - npm ci
         - npx prisma generate
-        - echo "AUTH_SECRET set:$([ -n "$AUTH_SECRET" ] && echo yes || echo NO)"
         - echo "DATABASE_URL set:$([ -n "$DATABASE_URL" ] && echo yes || echo NO)"
-        - echo "NEXTAUTH_URL set:$([ -n "$NEXTAUTH_URL" ] && echo yes || echo NO)"
+        - echo "AUTH_SECRET set:$([ -n "$AUTH_SECRET" ] && echo yes || echo NO)"
     build:
       commands:
         - export NODE_ENV=production
@@ -21,3 +20,8 @@ frontend:
     paths:
       - node_modules/**/*
       - .next/cache/**/*
+  environment:
+    variables:
+      - DATABASE_URL
+      - AUTH_SECRET
+      - NEXTAUTH_URL
