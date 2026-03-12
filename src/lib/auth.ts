@@ -3,7 +3,19 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
+const secret =
+  process.env.AUTH_SECRET ??
+  process.env.NEXTAUTH_SECRET ??
+  process.env.SECRET;
+
+if (!secret && process.env.NODE_ENV === "production") {
+  throw new Error(
+    "AUTH_SECRET environment variable is not set. Add it in the Amplify Console under Environment Variables."
+  );
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  secret,
   trustHost: true,
   session: { strategy: "jwt" },
   pages: {
