@@ -42,7 +42,9 @@ export async function POST(req: NextRequest) {
     const response = NextResponse.json({ data: user }, { status: 201 });
     response.cookies.set(cookie.name, cookie.value, cookie.options as Parameters<typeof response.cookies.set>[2]);
     return response;
-  } catch {
-    return NextResponse.json({ error: "Registration failed" }, { status: 500 });
+  } catch (err) {
+    console.error("[/api/register] error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: "Registration failed", detail: message }, { status: 500 });
   }
 }
